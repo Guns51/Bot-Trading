@@ -1,0 +1,72 @@
+DATASET= ETHUSDT_365d_2021-01-01_TO_2022-01-01_5m_data
+================================================================================
+TOP 20 DES MEILLEURES COMBINAISONS
+================================================================================
+909. SMA20/SMA200    | TP:3.0 SL:1.5 | Return:  106.76% | Sharpe:  2.24 | WinRate:  42.8% | Trades: 477
+912. SMA20/SMA200    | TP:3.0 SL:3.0 | Return:   78.06% | Sharpe:  1.60 | WinRate:  50.7% | Trades: 477
+901. SMA20/SMA200    | TP:2.0 SL:1.5 | Return:   74.89% | Sharpe:  2.03 | WinRate:  50.4% | Trades: 478
+905. SMA20/SMA200    | TP:2.5 SL:1.5 | Return:   70.55% | Sharpe:  1.81 | WinRate:  45.7% | Trades: 477
+911. SMA20/SMA200    | TP:3.0 SL:2.5 | Return:   57.95% | Sharpe:  1.34 | WinRate:  48.3% | Trades: 480
+897. SMA20/SMA200    | TP:1.5 SL:1.5 | Return:   56.85% | Sharpe:  1.82 | WinRate:  55.3% | Trades: 479
+910. SMA20/SMA200    | TP:3.0 SL:2.0 | Return:   49.71% | Sharpe:  1.25 | WinRate:  45.2% | Trades: 478
+1101. SMA21/SMA200    | TP:3.0 SL:1.5 | Return:   49.26% | Sharpe:  1.35 | WinRate:  40.7% | Trades: 459
+1245. SMA26/EMA200    | TP:3.0 SL:1.5 | Return:   46.90% | Sharpe:  1.35 | WinRate:  41.9% | Trades: 420
+902. SMA20/SMA200    | TP:2.0 SL:2.0 | Return:   42.20% | Sharpe:  1.26 | WinRate:  53.4% | Trades: 479
+1241. SMA26/EMA200    | TP:2.5 SL:1.5 | Return:   41.23% | Sharpe:  1.30 | WinRate:  44.3% | Trades: 420
+904. SMA20/SMA200    | TP:2.0 SL:3.0 | Return:   37.96% | Sharpe:  1.09 | WinRate:  58.0% | Trades: 479
+899. SMA20/SMA200    | TP:1.5 SL:2.5 | Return:   37.44% | Sharpe:  1.19 | WinRate:  62.0% | Trades: 481
+900. SMA20/SMA200    | TP:1.5 SL:3.0 | Return:   37.16% | Sharpe:  1.15 | WinRate:  63.5% | Trades: 480
+908. SMA20/SMA200    | TP:2.5 SL:3.0 | Return:   37.06% | Sharpe:  1.01 | WinRate:  53.9% | Trades: 479
+903. SMA20/SMA200    | TP:2.0 SL:2.5 | Return:   33.76% | Sharpe:  1.03 | WinRate:  56.1% | Trades: 481
+898. SMA20/SMA200    | TP:1.5 SL:2.0 | Return:   33.70% | Sharpe:  1.15 | WinRate:  58.7% | Trades: 479
+1097. SMA21/SMA200    | TP:2.5 SL:1.5 | Return:   25.93% | Sharpe:  0.89 | WinRate:  44.0% | Trades: 459
+646. SMA12/SMA200    | TP:2.0 SL:2.0 | Return:   25.18% | Sharpe:  0.82 | WinRate:  49.7% | Trades: 582
+907. SMA20/SMA200    | TP:2.5 SL:2.5 | Return:   22.64% | Sharpe:  0.73 | WinRate:  51.4% | Trades: 481
+
+================================================================================
+ANALYSE PAR TYPE DE COMBINAISON
+================================================================================
+SMA/SMA   :  336 combinaisons | Retour moyen: -57.82% | Meilleur: 106.76% (SMA20/SMA200)
+SMA/EMA   :  336 combinaisons | Retour moyen: -67.07% | Meilleur:  46.90% (SMA26/EMA200)
+EMA/SMA   :  336 combinaisons | Retour moyen: -60.61% | Meilleur:  17.16% (EMA50/SMA200)
+EMA/EMA   :  336 combinaisons | Retour moyen: -65.77% | Meilleur:  12.71% (EMA26/EMA200)
+
+================================================================================
+MEILLEURE COMBINAISON: SMA20/SMA200
+avec TP=3.0x et SL=1.5x
+================================================================================
+
+DÉTAILS DE LA MEILLEURE STRATÉGIE:
+Combinaison: SMA20/SMA200
+TP: 3.0x, SL: 1.5x
+Start                         2021-01-01 00:00:00+01:00
+End                           2021-12-31 23:55:00+01:00
+Period                                364 days 07:35:00
+Start Value                                       500.0
+End Value                                     1033.8018
+Total Return [%]                              106.76036
+Benchmark Return [%]                         399.017362
+Max Gross Exposure [%]                            100.0
+Total Fees Paid                              311.365329
+Max Drawdown [%]                              16.446229
+Max Drawdown Duration                  66 days 14:40:00
+Total Trades                                        477
+Total Closed Trades                                 477
+Total Open Trades                                     0
+Open Trade PnL                                      0.0
+Win Rate [%]                                  42.767296
+Best Trade [%]                                 7.112724
+Worst Trade [%]                               -3.809632
+Avg Winning Trade [%]                          1.796418
+Avg Losing Trade [%]                          -1.053199
+Avg Winning Trade Duration              0 days 02:13:45
+Avg Losing Trade Duration     0 days 01:52:33.846153846
+Profit Factor                                  1.237922
+Expectancy                                     1.119081
+Sharpe Ratio                                   2.243004
+Calmar Ratio                                   6.508638
+Omega Ratio                                    1.062652
+Sortino Ratio                                  3.380971
+
+
+

@@ -1,0 +1,74 @@
+//@version=6
+strategy("SPY Auto RSI Stochastics", pyramiding = 2)
+
+// ───── PARAMÈTRES
+slowRSILength      = input.int(50,  title = "SLOW RSI Length")
+fastRSILength      = input.int(7,   title = "FAST RSI Length")
+smaRSILength       = input.int(3,   title = "RSI SMA Length")
+RSIUpperThreshold  = input.float(85, title = "RSI Upper")
+RSILowerThreshold  = input.float(25, title = "RSI Lower")
+RSIUpperDeadzone   = input.float(66, title = "RSI Upper Deadzone")
+RSILowerDeadzone   = input.float(34, title = "RSI Lower Deadzone")
+
+// ───── FILTRE TEMPS & JOURS
+blockedDays = dayofweek(time) == dayofweek.monday or dayofweek(time) == dayofweek.sunday
+
+sessionMarket = input.session("0900-0900", title = "Session Start")
+allowedTimes() =>
+    time(timeframe.period, sessionMarket, "GMT+1")
+
+isValidTradeTime = not blockedDays and not na(allowedTimes())
+
+// ───── INDICATEURS RSI
+slowRSI = ta.rsi(close, slowRSILength)
+fastRSI = ta.rsi(close, fastRSILength)
+smaRSI  = ta.sma(fastRSI, smaRSILength)
+rsi     = fastRSI
+
+// ───── CONDITIONS TENDANCE RSI
+RSIUptrend() =>
+    ta.crossover(fastRSI, slowRSI) and ta.crossover(fastRSI, smaRSI)
+
+RSIDowntrend() =>
+    ta.crossunder(fastRSI, slowRSI) and ta.crossunder(fastRSI, smaRSI)
+
+// ───── DEADZONE RSI
+isRSIDeadzone() =>
+    rsi < RSIUpperDeadzone and rsi > RSILowerDeadzone
+
+// ───── ENGULFING (présents mais non utilisés, conservés)
+isBullishEngulfing() =>
+    close > high[1]
+
+isBearishEngulfing() =>
+    close < low[1]
+
+// ───── CONDITIONS D’ENTRÉE
+entryConditionLong  = RSIUptrend()  and not isRSIDeadzone() and isValidTradeTime
+entryConditionShort = RSIDowntrend() and not isRSIDeadzone() and isValidTradeTime
+
+// ───── CONDITIONS DE SORTIE
+exitConditionLong  = entryConditionShort or fastRSI > RSIUpperThreshold
+exitConditionShort = entryConditionLong  or fastRSI < RSILowerThreshold
+
+// ───── ORDRES
+if entryConditionLong
+    strategy.entry("Long", strategy.long,
+        alert_message = "LONG! beep boop, all aboard the long train")
+
+if entryConditionShort
+    strategy.entry("Short", strategy.short,
+        alert_message = "SHORT! beep boop, all aboard the short train")
+
+if exitConditionLong
+    strategy.exit("Exit Long", from_entry = "Long", limit = close,
+        alert_message = "Stop Long, halt halt, take profits and runnn")
+
+if exitConditionShort
+    strategy.exit("Exit Short", from_entry = "Short", limit = close,
+        alert_message = "Stop Short, halt halt, take profits and runnn")
+
+// ───── PLOTS
+plot(slowRSI, "Slow RSI", color = color.green)
+plot(fastRSI, "Fast RSI", color = color.white)
+plot(smaRSI,  "SMA RSI",  color = color.green)

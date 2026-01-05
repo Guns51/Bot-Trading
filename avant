@@ -1,0 +1,145 @@
+import vectorbt as vbt
+import pandas as pd
+import numpy as np
+
+# Télécharger les données (exemple avec BTC-USD)
+# Vous pouvez changer le symbole et la période selon vos besoins
+data = vbt.YFData.download(
+    "BTC-USD",
+    start="2020-01-01",
+    end="2024-12-31"
+).get()
+
+# Paramètres de la stratégie
+RSI_LENGTH = 6
+RSI_OVERSOLD = 50
+RSI_OVERBOUGHT = 50
+BB_LENGTH = 200
+BB_MULT = 2
+
+# Calculer le RSI
+rsi = vbt.talib("RSI").run(
+    data['Close'],
+    timeperiod=RSI_LENGTH
+).real
+
+# Calculer les Bollinger Bands
+bbands = vbt.talib("BBANDS").run(
+    data['Close'],
+    timeperiod=BB_LENGTH,
+    nbdevup=BB_MULT,
+    nbdevdn=BB_MULT
+)
+
+bb_upper = bbands.upperband
+bb_middle = bbands.middleband
+bb_lower = bbands.lowerband
+
+# Détecter les crossovers
+price = data['Close']
+
+# Crossover RSI au-dessus de RSI_OVERSOLD
+rsi_cross_above = (rsi.shift(1) <= RSI_OVERSOLD) & (rsi > RSI_OVERSOLD)
+
+# Crossover prix au-dessus de la bande inférieure
+price_cross_above_lower = (price.shift(1) <= bb_lower.shift(1)) & (price > bb_lower)
+
+# Crossunder RSI en-dessous de RSI_OVERBOUGHT
+rsi_cross_below = (rsi.shift(1) >= RSI_OVERBOUGHT) & (rsi < RSI_OVERBOUGHT)
+
+# Crossunder prix en-dessous de la bande supérieure
+price_cross_below_upper = (price.shift(1) >= bb_upper.shift(1)) & (price < bb_upper)
+
+# Générer les signaux d'entrée
+entries_long = rsi_cross_above & price_cross_above_lower
+entries_short = rsi_cross_below & price_cross_below_upper
+
+# Créer le portfolio avec les signaux longs et courts
+portfolio = vbt.Portfolio.from_signals(
+    close=price,
+    entries=entries_long,
+    short_entries=entries_short,
+    freq='1D',
+    init_cash=10000,
+    fees=0.001  # 0.1% de frais
+)
+
+# Afficher les statistiques
+print("=" * 60)
+print("STATISTIQUES DE LA STRATÉGIE")
+print("=" * 60)
+print(portfolio.stats())
+print("=" * 60)
+
+# Afficher le graphique
+fig = portfolio.plot(
+    subplots=[
+        'orders',
+        'trade_pnl',
+        'cum_returns',
+        'drawdowns'
+    ]
+)
+fig.show()
+
+# Afficher également un graphique avec les Bollinger Bands et le RSI
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+fig2 = make_subplots(
+    rows=2, cols=1,
+    shared_xaxes=True,
+    vertical_spacing=0.03,
+    row_heights=[0.7, 0.3],
+    subplot_titles=('Prix et Bollinger Bands', 'RSI')
+)
+
+# Prix et Bollinger Bands
+fig2.add_trace(
+    go.Scatter(x=price.index, y=price, name='Prix', line=dict(color='blue')),
+    row=1, col=1
+)
+fig2.add_trace(
+    go.Scatter(x=bb_upper.index, y=bb_upper, name='BB Supérieure', line=dict(color='gray', dash='dash')),
+    row=1, col=1
+)
+fig2.add_trace(
+    go.Scatter(x=bb_middle.index, y=bb_middle, name='BB Moyenne', line=dict(color='cyan')),
+    row=1, col=1
+)
+fig2.add_trace(
+    go.Scatter(x=bb_lower.index, y=bb_lower, name='BB Inférieure', line=dict(color='gray', dash='dash')),
+    row=1, col=1
+)
+
+# Signaux d'achat (long)
+buy_signals = price[entries_long]
+fig2.add_trace(
+    go.Scatter(x=buy_signals.index, y=buy_signals, mode='markers', 
+               name='Signal Long', marker=dict(color='green', size=10, symbol='triangle-up')),
+    row=1, col=1
+)
+
+# Signaux de vente (short)
+sell_signals = price[entries_short]
+fig2.add_trace(
+    go.Scatter(x=sell_signals.index, y=sell_signals, mode='markers',
+               name='Signal Short', marker=dict(color='red', size=10, symbol='triangle-down')),
+    row=1, col=1
+)
+
+# RSI
+fig2.add_trace(
+    go.Scatter(x=rsi.index, y=rsi, name='RSI', line=dict(color='purple')),
+    row=2, col=1
+)
+fig2.add_hline(y=RSI_OVERBOUGHT, line_dash="dash", line_color="red", row=2, col=1)
+fig2.add_hline(y=RSI_OVERSOLD, line_dash="dash", line_color="green", row=2, col=1)
+
+fig2.update_layout(
+    title='Stratégie Bollinger + RSI',
+    height=800,
+    showlegend=True
+)
+
+fig2.show()

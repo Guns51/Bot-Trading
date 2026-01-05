@@ -1,0 +1,79 @@
+//@version=6
+strategy("Bollinger + RSI, Double Strategy (by ChartArt) v1.1", shorttitle="CA_-_RSI_Bol_Strat_1.1", overlay=true)
+
+// ChartArt's RSI + Bollinger Bands, Double Strategy - Update
+//
+// Version 1.1
+// Idea by ChartArt on January 18, 2015.
+//
+// This strategy uses the RSI indicator 
+// together with the Bollinger Bands 
+// to sell when the price is above the
+// upper Bollinger Band (and to buy when
+// this value is below the lower band).
+//
+// This simple strategy only triggers when
+// both the RSI and the Bollinger Bands
+// indicators are at the same time in
+// a overbought or oversold condition.
+//
+// In this version 1.1 the strategy was
+// both simplified for the user and
+// made more successful in backtesting. 
+//
+// List of my work: 
+// https://www.tradingview.com/u/ChartArt/
+// 
+//  __             __  ___       __  ___ 
+// /  ` |__|  /\  |`)  |   /\  |`)  |  
+// \__, |  | /~~\ |  \  |  /~~\ |  \  |  
+// 
+// 
+
+
+///////////// RSI
+RSIlength = input.int(6, title="RSI Period Length") 
+RSIoverSold = 50
+RSIoverBought = 50
+price = close
+vrsi = ta.rsi(price, RSIlength)
+
+
+///////////// Bollinger Bands
+BBlength = input.int(200, minval=1, title="Bollinger Period Length")
+BBmult = 2 // input(2.0, minval=0.001, maxval=50, title="Bollinger Bands Standard Deviation")
+BBbasis = ta.sma(price, BBlength)
+BBdev = BBmult * ta.stdev(price, BBlength)
+BBupper = BBbasis + BBdev
+BBlower = BBbasis - BBdev
+source = close
+buyEntry = ta.crossover(source, BBlower)
+sellEntry = ta.crossunder(source, BBupper)
+plot(BBbasis, color=color.aqua, title="Bollinger Bands SMA Basis Line")
+p1 = plot(BBupper, color=color.silver, title="Bollinger Bands Upper Line")
+p2 = plot(BBlower, color=color.silver, title="Bollinger Bands Lower Line")
+fill(p1, p2)
+
+
+///////////// Colors
+switch1 = input.bool(true, title="Enable Bar Color?")
+switch2 = input.bool(true, title="Enable Background Color?")
+TrendColor = (vrsi > RSIoverBought) and (price[1] > BBupper and price < BBupper) and BBbasis < BBbasis[1] ? color.red : (vrsi < RSIoverSold) and (price[1] < BBlower and price > BBlower) and BBbasis > BBbasis[1] ? color.green : na
+barcolor(switch1 ? TrendColor : na)
+bgcolor(switch2 ? color.new(TrendColor, 50) : na)
+
+
+///////////// RSI + Bollinger Bands Strategy
+if (not na(vrsi))
+
+    if (ta.crossover(vrsi, RSIoverSold) and ta.crossover(source, BBlower))
+        strategy.entry("RSI_BB_L", strategy.long, comment="RSI_BB_L")
+    else
+        strategy.cancel(id="RSI_BB_L")
+        
+    if (ta.crossunder(vrsi, RSIoverBought) and ta.crossunder(source, BBupper))
+        strategy.entry("RSI_BB_S", strategy.short, comment="RSI_BB_S")
+    else
+        strategy.cancel(id="RSI_BB_S")
+
+//plot(strategy.equity, title="equity", color=color.red, linewidth=2, style=plot.style_area)

@@ -1,0 +1,309 @@
+deepseek me la donné : https://chat.deepseek.com/a/chat/s/7a81abf4-7386-4d68-b0d8-4794aa42c4ee
+
+
+
+
+//@version=5
+strategy("Divergences RSI - Version Optimisée", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100, initial_capital=1000)
+
+// ===== PARAMÈTRES OPTIMISÉS POUR CRYPTO =====
+// RSI
+rsiLength = input.int(14, "RSI Length", minval=1)
+rsiOverbought = input.int(65, "RSI Surchat")  // Réduit pour plus de signaux
+rsiOversold = input.int(35, "RSI Survendu")   // Réduit pour plus de signaux
+
+// Détection des pivots - OPTIMISÉ
+lookbackLeft = input.int(3, "Bars à gauche pour pivot", minval=2)  // Réduit
+lookbackRight = input.int(3, "Bars à droite pour pivot", minval=2) // Réduit
+
+// Filtres - ASSOUPLIS
+minDivergenceBars = input.int(10, "Bars minimum entre pivots", minval=5)  // Réduit
+maxDivergenceBars = input.int(200, "Bars maximum entre pivots", minval=50) // Augmenté
+
+// Filtres optionnels - DÉSACTIVÉS par défaut
+useCloseConfirmation = input.bool(true, "Confirmation par clôture")
+useVolumeConfirmation = input.bool(false, "Confirmation par volume")  // Désactivé
+useTrendFilter = input.bool(false, "Filtre de tendance EMA")  // DÉSACTIVÉ pour plus de signaux
+emaLength = input.int(200, "EMA Length")  // EMA 200 pour tendance long terme
+
+// Gestion des risques
+stopLossPercent = input.float(3.0, "Stop Loss %", minval=0.5, maxval=10)  // Augmenté
+takeProfitPercent = input.float(6.0, "Take Profit %", minval=1, maxval=30) // Ratio 1:2
+trailingStop = input.bool(true, "Trailing Stop")
+
+// ===== NOUVEAUX PARAMÈTRES =====
+useHiddenDivergence = input.bool(true, "Divergences cachées", 
+     tooltip="Les divergences cachées sont des continuations de tendance")
+useRegularDivergence = input.bool(true, "Divergences régulières",
+     tooltip="Les divergences régulières sont des retournements")
+
+rsiZone = input.string("Both", "Zone d'entrée RSI", 
+     options=["Both", "Oversold Only", "Overbought Only"])
+
+// ===== CALCULS =====
+// RSI
+rsiValue = ta.rsi(close, rsiLength)
+
+// EMA pour filtre de tendance (seulement si activé)
+emaValue = ta.ema(close, emaLength)
+trendUp = close > emaValue
+trendDown = close < emaValue
+
+// Volume (seulement si activé)
+volumeAvg = ta.sma(volume, 20)
+volumeHigh = volume > volumeAvg * 1.3  // Seuil réduit
+
+// ===== DÉTECTION DES PIVOTS AMÉLIORÉE =====
+// Fonction pour détecter les pivots avec tolérance
+pivotHighPrice = ta.pivothigh(high, lookbackLeft, lookbackRight)
+pivotLowPrice = ta.pivotlow(low, lookbackLeft, lookbackRight)
+pivotHighRSI = ta.pivothigh(rsiValue, lookbackLeft, lookbackRight)
+pivotLowRSI = ta.pivotlow(rsiValue, lookbackLeft, lookbackRight)
+
+// ===== DÉTECTION DES DIVERGENCES AMÉLIORÉE =====
+var bool bearishDiv = false
+var bool bullishDiv = false
+var bool hiddenBearishDiv = false
+var bool hiddenBullishDiv = false
+var int signalBar = na
+
+// Stockage des pivots
+var float[] priceHighs = array.new_float(0)
+var float[] rsiHighs = array.new_float(0)
+var int[] barHighs = array.new_int(0)
+
+var float[] priceLows = array.new_float(0)
+var float[] rsiLows = array.new_float(0)
+var int[] barLows = array.new_int(0)
+
+// Ajout des pivots
+if not na(pivotHighPrice)
+    array.unshift(priceHighs, pivotHighPrice)
+    array.unshift(rsiHighs, pivotHighRSI)
+    array.unshift(barHighs, bar_index - lookbackRight)
+    if array.size(priceHighs) > 10
+        array.pop(priceHighs)
+        array.pop(rsiHighs)
+        array.pop(barHighs)
+
+if not na(pivotLowPrice)
+    array.unshift(priceLows, pivotLowPrice)
+    array.unshift(rsiLows, pivotLowRSI)
+    array.unshift(barLows, bar_index - lookbackRight)
+    if array.size(priceLows) > 10
+        array.pop(priceLows)
+        array.pop(rsiLows)
+        array.pop(barLows)
+
+// Détection des DIVERGENCES RÉGULIÈRES
+if array.size(priceHighs) >= 2 and useRegularDivergence
+    ph1 = array.get(priceHighs, 0)
+    ph2 = array.get(priceHighs, 1)
+    rh1 = array.get(rsiHighs, 0)
+    rh2 = array.get(rsiHighs, 1)
+    bh1 = array.get(barHighs, 0)
+    bh2 = array.get(barHighs, 1)
+    
+    barsBetween = math.abs(bh1 - bh2)
+    
+    // Divergence baissière régulière : prix fait plus haut, RSI fait plus bas
+    if ph1 > ph2 and rh1 < rh2 and barsBetween >= minDivergenceBars and barsBetween <= maxDivergenceBars
+        bearishDiv := true
+        signalBar := bh1
+    else
+        bearishDiv := false
+
+if array.size(priceLows) >= 2 and useRegularDivergence
+    pl1 = array.get(priceLows, 0)
+    pl2 = array.get(priceLows, 1)
+    rl1 = array.get(rsiLows, 0)
+    rl2 = array.get(rsiLows, 1)
+    bl1 = array.get(barLows, 0)
+    bl2 = array.get(barLows, 1)
+    
+    barsBetween = math.abs(bl1 - bl2)
+    
+    // Divergence haussière régulière : prix fait plus bas, RSI fait plus haut
+    if pl1 < pl2 and rl1 > rl2 and barsBetween >= minDivergenceBars and barsBetween <= maxDivergenceBars
+        bullishDiv := true
+        signalBar := bl1
+    else
+        bullishDiv := false
+
+// Détection des DIVERGENCES CACHÉES
+if array.size(priceHighs) >= 2 and useHiddenDivergence
+    ph1 = array.get(priceHighs, 0)
+    ph2 = array.get(priceHighs, 1)
+    rh1 = array.get(rsiHighs, 0)
+    rh2 = array.get(rsiHighs, 1)
+    bh1 = array.get(barHighs, 0)
+    bh2 = array.get(barHighs, 1)
+    
+    barsBetween = math.abs(bh1 - bh2)
+    
+    // Divergence baissière cachée : prix fait plus bas, RSI fait plus haut (continuation baissière)
+    if ph1 < ph2 and rh1 > rh2 and barsBetween >= minDivergenceBars and barsBetween <= maxDivergenceBars
+        hiddenBearishDiv := true
+        signalBar := bh1
+
+if array.size(priceLows) >= 2 and useHiddenDivergence
+    pl1 = array.get(priceLows, 0)
+    pl2 = array.get(priceLows, 1)
+    rl1 = array.get(rsiLows, 0)
+    rl2 = array.get(rsiLows, 1)
+    bl1 = array.get(barLows, 0)
+    bl2 = array.get(barLows, 1)
+    
+    barsBetween = math.abs(bl1 - bl2)
+    
+    // Divergence haussière cachée : prix fait plus haut, RSI fait plus bas (continuation haussière)
+    if pl1 > pl2 and rl1 < rl2 and barsBetween >= minDivergenceBars and barsBetween <= maxDivergenceBars
+        hiddenBullishDiv := true
+        signalBar := bl1
+
+// ===== CONDITIONS FINALES =====
+// Conditions LONG
+longCondition = false
+if useRegularDivergence and bullishDiv
+    if rsiZone == "Both" or rsiZone == "Oversold Only"
+        longCondition := true
+
+if useHiddenDivergence and hiddenBullishDiv
+    if rsiZone == "Both" or rsiZone == "Overbought Only"
+        longCondition := true
+
+// Conditions SHORT
+shortCondition = false
+if useRegularDivergence and bearishDiv
+    if rsiZone == "Both" or rsiZone == "Overbought Only"
+        shortCondition := true
+
+if useHiddenDivergence and hiddenBearishDiv
+    if rsiZone == "Both" or rsiZone == "Oversold Only"
+        shortCondition := true
+
+// Filtres optionnels
+if useTrendFilter
+    longCondition := longCondition and trendUp
+    shortCondition := shortCondition and trendDown
+
+if useVolumeConfirmation
+    longCondition := longCondition and volumeHigh
+    shortCondition := shortCondition and volumeHigh
+
+// Confirmation par clôture
+entryDelay = useCloseConfirmation ? 1 : 0
+
+// ===== EXÉCUTION =====
+// Stop Loss et Take Profit dynamiques
+stopLossPrice = 0.0
+takeProfitPrice = 0.0
+
+if longCondition and bar_index >= signalBar + entryDelay
+    stopLossPrice = close * (1 - stopLossPercent/100)
+    takeProfitPrice = close * (1 + takeProfitPercent/100)
+    
+    strategy.entry("Long", strategy.long)
+    
+    if trailingStop
+        strategy.exit("Exit Long", "Long", 
+             stop=stopLossPrice, 
+             limit=takeProfitPrice,
+             trail_points=close * 0.01,  // Trailing de 1%
+             trail_offset=close * 0.01)
+    else
+        strategy.exit("Exit Long", "Long", 
+             stop=stopLossPrice, 
+             limit=takeProfitPrice)
+
+if shortCondition and bar_index >= signalBar + entryDelay
+    stopLossPrice = close * (1 + stopLossPercent/100)
+    takeProfitPrice = close * (1 - takeProfitPercent/100)
+    
+    strategy.entry("Short", strategy.short)
+    
+    if trailingStop
+        strategy.exit("Exit Short", "Short",
+             stop=stopLossPrice,
+             limit=takeProfitPrice,
+             trail_points=close * 0.01,
+             trail_offset=close * 0.01)
+    else
+        strategy.exit("Exit Short", "Short",
+             stop=stopLossPrice,
+             limit=takeProfitPrice)
+
+// ===== VISUALISATION =====
+// Couleurs
+regBullColor = color.new(color.green, 70)
+regBearColor = color.new(color.red, 70)
+hiddenBullColor = color.new(color.blue, 70)
+hiddenBearColor = color.new(color.orange, 70)
+
+// Tracer les divergences
+if bullishDiv
+    label.new(bar_index, low * 0.995, "↗ Reg Bull", 
+         color=regBullColor, textcolor=color.white, 
+         style=label.style_label_up, size=size.small)
+
+if bearishDiv
+    label.new(bar_index, high * 1.005, "↘ Reg Bear", 
+         color=regBearColor, textcolor=color.white,
+         style=label.style_label_down, size=size.small)
+
+if hiddenBullishDiv
+    label.new(bar_index, low * 0.99, "↗ Hidden Bull", 
+         color=hiddenBullColor, textcolor=color.white, 
+         style=label.style_label_up, size=size.small)
+
+if hiddenBearishDiv
+    label.new(bar_index, high * 1.01, "↘ Hidden Bear", 
+         color=hiddenBearColor, textcolor=color.white,
+         style=label.style_label_down, size=size.small)
+
+// ===== TABLEAU DE BORD =====
+var table infoTable = table.new(position.top_right, 2, 8, 
+     bgcolor=color.new(#2B2B2B, 95), border_width=1)
+
+if barstate.islast
+    table.cell(infoTable, 0, 0, "RSI Div Strategy", 
+         text_color=color.white, bgcolor=color.blue)
+    table.cell(infoTable, 1, 0, "V2.0", 
+         text_color=color.white, bgcolor=color.blue)
+    
+    table.cell(infoTable, 0, 1, "RSI Value:", text_color=color.white)
+    rsiColor = rsiValue > rsiOverbought ? color.red : 
+               rsiValue < rsiOversold ? color.green : color.yellow
+    table.cell(infoTable, 1, 1, str.tostring(rsiValue, "#.##"), 
+         text_color=rsiColor)
+    
+    table.cell(infoTable, 0, 2, "Div Bull:", text_color=color.white)
+    table.cell(infoTable, 1, 2, bullishDiv ? "YES" : "NO", 
+         text_color=bullishDiv ? color.lime : color.gray)
+    
+    table.cell(infoTable, 0, 3, "Div Bear:", text_color=color.white)
+    table.cell(infoTable, 1, 3, bearishDiv ? "YES" : "NO", 
+         text_color=bearishDiv ? color.red : color.gray)
+    
+    table.cell(infoTable, 0, 4, "Hidden Bull:", text_color=color.white)
+    table.cell(infoTable, 1, 4, hiddenBullishDiv ? "YES" : "NO", 
+         text_color=hiddenBullishDiv ? color.blue : color.gray)
+    
+    table.cell(infoTable, 0, 5, "Hidden Bear:", text_color=color.white)
+    table.cell(infoTable, 1, 5, hiddenBearishDiv ? "YES" : "NO", 
+         text_color=hiddenBearishDiv ? color.orange : color.gray)
+    
+    // Statistiques
+    winRate = strategy.wintrades / (strategy.wintrades + strategy.losstrades) * 100
+    table.cell(infoTable, 0, 6, "Win Rate:", text_color=color.white)
+    table.cell(infoTable, 1, 6, str.tostring(winRate, "#.##") + "%", 
+         text_color=winRate > 50 ? color.green : color.red)
+    
+    profitFactor = strategy.wintrades / math.max(strategy.losstrades, 1)
+    table.cell(infoTable, 0, 7, "Profit Factor:", text_color=color.white)
+    table.cell(infoTable, 1, 7, str.tostring(profitFactor, "#.##"), 
+         text_color=profitFactor > 1 ? color.green : color.red)
+
+// ===== ALERTES =====
+alertcondition(bullishDiv or hiddenBullishDiv, "Divergence Haussière", "Divergence haussière détectée!")
+alertcondition(bearishDiv or hiddenBearishDiv, "Divergence Baissière", "Divergence baissière détectée!")

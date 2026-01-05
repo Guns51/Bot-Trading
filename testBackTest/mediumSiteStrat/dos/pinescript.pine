@@ -1,0 +1,93 @@
+//@version=6
+strategy("DAX 1H Long", overlay=true)
+
+// Input parameters
+ma21Length = input.int(21, title="MA21 Length")
+ma50Length = input.int(50, title="MA50 Length")
+ma200Length = input.int(200, title="MA200 Length")
+rsiLength = input.int(14, title="RSI Length")
+//rsiLowerThreshold = input(30, title="RSI Lower Threshold")
+rsiThreshold = input.int(50, title="RSI Trend Change Threshold")
+rsiUpperThreshold = input.int(69, title="RSI Upper Threshold")
+engulfingCandleSizeBull = input.float(7.0, "How big should the EC Bull be(for entry)?")
+engulfingCandleSizeBear = input.float(0, "How big should the EC be(for exit)?")
+thresholdRSICandles = input.int(9, title="Threshold for RSI trending")
+atrLength = input.int(14, title="ATR Length")
+atrMultiplierTP = input.float(3.5, title="ATR Multiplier for TP")
+atrMultiplierSL = input.float(3.0, title="ATR Multiplier for SL")
+blockedDays = (dayofweek(time) == 1 or dayofweek(time) == 7)
+sessionMarket = input.session("0900-0900", title="Session Start")
+allowedTimes() => time(timeframe = timeframe.period, session = sessionMarket, timezone = "GMT+1")
+isvalidTradeTime = not(blockedDays) and not na(allowedTimes())
+
+// Smoothed Moving Averages
+ma21 = ta.sma(close, ma21Length)
+ma50 = ta.sma(close, ma50Length)
+ma200 = ta.sma(close, ma200Length)
+
+// RSI and ATR
+rsi = ta.rsi(close, rsiLength)
+atrValue = ta.atr(atrLength)
+
+// Entry condition
+trendingUp() => low > ma21 and ma21 > ma50 and ma50 > ma200
+trendingDown() => close < ma50 and (ma21 > ma50) or (ma200 > ma50 and ma50 > ma21)
+
+RSIUptrend() =>  rsi > rsiThreshold and rsi < rsiUpperThreshold and ta.sma(rsi, rsiLength) > ta.sma(rsi[thresholdRSICandles], rsiLength)
+RSIDowntrend() => rsi < rsiThreshold and ta.sma(rsi, rsiLength) < ta.sma(rsi[thresholdRSICandles], rsiLength)
+
+
+isBullishEngulfing() =>
+    close > high[1] and (close - open) > engulfingCandleSizeBull
+
+isBearishEngulfing() => 
+    close < low[1] and (open - close) > engulfingCandleSizeBear
+
+
+// Declare variables
+var float initialSL = na
+var float initialTP = na
+var bool inATrade = false
+
+entryConditionLong = trendingUp() and RSIUptrend() and isBullishEngulfing() and isvalidTradeTime
+
+if (entryConditionLong)
+    initialSL := low - atrValue * atrMultiplierSL
+    initialTP := high + atrValue * atrMultiplierTP 
+
+    // Calculate SL and TP as percentage deviations, used in alerting
+    _percSL = math.round(atrMultiplierSL * atrValue / close * 100, 2)
+    _percTP = math.round(atrMultiplierTP * atrValue / close * 100, 2)
+    strategy.entry(id = "Long", direction = strategy.long, alert_message = 'DAX LONG! beep boop, all aboard the long train. SL:' + str.tostring(_percSL) + '; TP:' + str.tostring(_percTP))
+// Set Stop Loss and Take Profit
+slConditionLong = close < initialSL and isvalidTradeTime
+tpConditionLong = close > initialTP and isvalidTradeTime
+
+
+
+if (slConditionLong)
+    strategy.exit("Long", from_entry="Long", stop=close, alert_message = 'Stop the trade, halt halt, stop the bleeding')
+if (tpConditionLong)
+    strategy.exit("Long", from_entry="Long", limit=close, alert_message = 'Stop the trade, halt halt, take the profits and runnn')
+
+
+// Plotting
+plot(ma21, color=color.white, title="MA21")
+plot(ma50, color=color.green, title="MA50")
+plot(ma200, color=color.red, title="MA200")
+
+plotshape(entryConditionLong, title="Long Entry", color =color.green, style=shape.triangleup, location=location.belowbar, size = size.small)
+
+if (entryConditionLong)
+    inATrade := true
+plotshape((slConditionLong) and inATrade, title="SL", color=color.red, style=shape.xcross, location=location.abovebar, size = size.small)
+plotshape((tpConditionLong) and inATrade, title="TP", color=color.red, style=shape.xcross, location=location.abovebar, size = size.small)
+
+plot(initialTP, color=color.white, linewidth=1, title="TP Level",  style = plot.style_cross)
+plot(initialSL, color=color.white, linewidth=1, title="SL level", style = plot.style_cross)
+
+if slConditionLong or tpConditionLong
+    inATrade := false
+    // we reset the vars so that the plotted lines are cleared
+    initialSL := na
+    initialTP := na

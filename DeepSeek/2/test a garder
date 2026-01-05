@@ -1,0 +1,29 @@
+'''
+# Signaux de sortie (test qui va pas trop mal a voir si pertinent pour dautre application)
+exits['Long']  = bearish & entries['Long'].shift(MIN_HOLD).fillna(False)
+exits['Short'] = bullish & entries['Short'].shift(MIN_HOLD).fillna(False)
+'''
+
+'''
+# test minimum 15 minutes de trade 
+MIN_HOLD = 10  # minutes (bougies en 1m)
+
+time_sec = close.index.view("int64") // 10**9  # timestamp en secondes
+
+entry_time_long = pd.Series(index=close.index, dtype='float64')
+entry_time_short = pd.Series(index=close.index, dtype='float64')
+
+entry_time_long[entries['Long']] = time_sec[entries['Long']]
+entry_time_short[entries['Short']] = time_sec[entries['Short']]
+
+entry_time_long = entry_time_long.ffill()
+entry_time_short = entry_time_short.ffill()
+
+# Durée réelle en minutes
+long_duration  = (time_sec - entry_time_long) / 60
+short_duration = (time_sec - entry_time_short) / 60
+
+# Sorties autorisées uniquement après MIN_HOLD
+exits['Long']  = bearish & (long_duration  >= MIN_HOLD)
+exits['Short'] = bullish & (short_duration >= MIN_HOLD)
+'''
